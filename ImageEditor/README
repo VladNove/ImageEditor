@@ -1,0 +1,140 @@
+//Novetschi Vlad 312CA
+
+----------------------
+Descrierea Programului
+----------------------
+
+Am utilizat structuri pentru modularizarea si simplificarea codului, precum si
+pentru reducerea numarului de argumente necesare in functii.
+Pentru un cod cat mai omogen, majoritatea functiilor au ca parametri imaginea
+pe care lucram, si selectia pe care vom efectua operatia, de asemenea acestea
+sunt de tip int si returneaza valoarea 0 in caz ca nu au fost efectuate cu
+succes. In cazul in care nu avem o imagine incarcata, tipul acesteia va fi 0.
+Am ales sa utilizez doar valoarea pixelilor rosii pentru imaginile grayscale,
+fiind posibila utilizarea acelorasi functii, indiferent de tipul imaginii.
+
+Pentru o modularizare cat mai eficienta a codului utilizam cele 3 surse:
+
+	image_editor.c - contine functia main, folosit pentru initializare si
+					parsarea comenzilor
+
+	functii.c - cuprinde functiile necesare pentru efectuarea comenzilor
+
+	auxiliar.c - cuprinde functii ajutatoare
+
+
+--------------------------------
+Descrierea structurilor folosite 
+--------------------------------
+
+- pixel = pentru a retine valorile celor 3 culori asociate unui pixel, stocate
+	ca char-uri (acestea avand un octet fiecare). In cazul imaginilor Grayscale
+	este folosit doar char-ul pentru culoarea rosie.
+
+- imagine = retine tipul, dimensiunile si valoarea maxima a imaginii, precum
+	si un pointer cu adresa matricii de pixeli.
+
+- selectie = retine coordonatele colturilor dreptunghiului de selectie
+
+
+---------------------
+Descrierea functiilor
+---------------------
+
+--- image_editor.c --- Parsarea de comenzi, alocare ---
+
+In aceasta sursa avem functiile:
+
+- allocimg - pentru alocarea dinamica a matricii de pixeli
+
+- stergereimg - pentru eliberarea spatiului matricii de pixeli
+
+- main - In functia main efectuam identificarea/parsarea comenzii apelate.
+	Citim linia introdusa in terminal si o stocam in sirul "linie".
+	Parsam cu sscanf in sirurile "comanda" si "argument" (acesta va fi gol
+	pentru functiile ce nu necesita un argument, ex: CROP),
+	identificam comanda apelata, si executam functia asociata acesteia.
+
+	Pentru functia SELECT, in cazul in care argumentul nu este ALL, transmitem
+	sirul linie catre functia select unde va fi din nou parsat corespunzator.
+	Functiile care selecteaza complet imaginea in urma rularii lor vor apela
+	si functia select(all), daca acestea au fost indeplinite cu succes (ele
+	vor returna 0 in cazul in care nu au fost efectuate cu succes).
+
+	Pentru functia SAVE, parsam sirul pentru a verifica aparitia sirului ascii.
+
+	in cazul comenzii EXIT, terminam programul eliberand spatiul alocat 
+	imaginii si schimbam valoarea variabilei exit pentru a inchide programul.
+
+
+--- functii.c --- Functiile Comenzilor ---
+
+- citireimg - are ca argumente adresa unei imagini si numele fisierului din
+	care va fi citita.
+
+	Deschidem fisierul imaginii (Daca esueaza, tipul imaginii va fi 0)
+	Citim tipul, dimensiunile si valoarea maxima folosind funcia "citirecom"
+	pentru a ignora comentariile (liniile care incep cu #)
+	(citim inca un caracter dupa valoarea maxima pentru a nu lasa '/n'-ul sa
+	interfereze cu citirea fisierlor binare)
+	Alocam matricea corespunzator dimensiunilor si citim valorile pixelilor cu
+	fscanf sau fread in functie de tip.
+
+- scriere - primeste o imagine, numele cu care va fi salvata, si variabila
+	ascii (cu valoarea 1 pentru fisierele scrise ascii si 0 pentru cele binare)
+	Verificam daca avem o imagine incarcata si schimbam tipul imaginii in
+	functie de modul de salvare cerut.
+	Scriem datele imaginii, iar apoi, in functie de tipul dorit, folosim
+	fwrite sau fprintf pentru scrierea pixelilor.
+
+- grayscale / sepia - primesc imaginea si selectia
+	Se verifica valabilitatea filtrelor, dupa aceasta se parcurge matricea
+	pixel cu pixel si se calculeaza valorile pixelilor noi folosind formulele
+	precizate. (Pentru rotunjirea la cel mai apropiat intreg adunam 0.5)
+	(Explicatie: pentru o valoare x cu {x}>=0.5, valoarea noua va fi >=(x+1),
+	iar pentru valorile cu partea fractionara <0.5 , valoarea noua va fi < x+1
+	si prin cast la int va ramane x)
+
+- rotate - primeste imaginea, o selectie, si un argument (unghiul)
+	Mai intai verificam conditiile pentru ca rotatia sa se indeplineasca cu
+	succes, apoi, in functie de unghi, determinam numarul necesar de rotatii
+	la dreapta si le efectuam pe rand folosind functia "rotire", selectand
+	intreaga imagine atunci cand e necesar
+
+- crop - primeste imaginea si o selectie
+	Pentru realizarea CROP, alocam o noua imagine "tmp", si o construim din
+	pixelii selectati, dupa aceasta stergem imaginea precedenta (ii eliberam
+	memoria cu functia stergereimg) si o inlocuim cu noua imagine.
+
+- selectd - Selecteaza o portiune dreptunghiulara din imagine
+	Functia primeste ca parametru, pe langa imagine si selectie, si linia
+	comenzii introduse, pentru a reparsa-o in scopul citirii coordonatelor
+	introduse. Se interschimba coordonatele daca este necesar, se verifica
+	daca acestea sunt valide, si se completeaza noua selectie.
+
+- selectall - selecteaza intreaga imagine
+	Daca exista o imagine loadata, se efectueaza selectarea completa a imaginii
+
+
+--- auxiliar.c ---
+
+- citirecom - folosind comanda fgets intr-o bucla, ignoram liniile care incep
+	cu #, iar apoi transmitem valorile cerute prin intermediul adreselor
+	primite ca parametru. (tipul acestora fiind specificat in sirul "tip")
+
+- rotateinvalid - testeaza daca imaginea este patrata, sau daca intreaga
+	imagine este selectata, si returneaza 1 in caz contrar;
+
+- sinvalid - testeaza daca o selectie este valida, returneaza 1 in cazul in
+	care coordonatele ies in afara imaginii, sunt negative, sau selectia are
+	suprafata egala cu 0, si returneaza 0 in caz ca selectia e valida.
+
+- rotire - Efectueaza rotirea la dreapta a unei selectii.
+	Alocam o noua imagine, de dimensiunea selectiei, si o construim prin
+	rotirea pixelilor selectiei (transpunere + mirror).
+	Daca selectia a fost efectuata pe intreaga imagine, stergem imaginea
+	precedenta si o inlocuim cu cea noua, in caz contrar suprapunem imaginea
+	construita peste cea originala.
+
+-------------------------------------------------------------------------------
+//Novetschi Vlad 312CA
